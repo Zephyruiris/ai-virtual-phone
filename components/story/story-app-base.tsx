@@ -35,6 +35,31 @@ function SolidBackIcon({ size = 17 }: { size?: number }) {
     </svg>
   );
 }
+
+function MagnifyingGlassIcon({ className, width = 16, height = 16 }: { className?: string; width?: number; height?: number }) {
+  return (
+    <svg className={className} width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function ChevronUpIcon({ width = 16, height = 16 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ width = 16, height = 16 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 import CSSSchemeBar from "@/components/ui/css-scheme-picker";
 import { Avatar } from "@/components/ui/primitives";
 import { StoryHtmlRenderer } from "@/components/ui/story-html-renderer";
@@ -294,6 +319,13 @@ export function StoryApp({ onClose }: StoryAppProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [cssModalOpen, setCssModalOpen] = useState(false);
+  
+  // 查找功能相关的 state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ msgId: string; index: number }[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shellInnerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(true);
@@ -756,6 +788,85 @@ export function StoryApp({ onClose }: StoryAppProps) {
     if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
   }
 
+  // 查找的核心逻辑
+  const performSearch = useCallback((query: string, direction: "next" | "prev" = "next") => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      return;
+    }
+
+    const q = query.toLowerCase();
+    const results: { msgId: string; index: number }[] = [];
+
+    messages.forEach((msg) => {
+      const text = (msg.renderedContent || msg.rawContent || "").toLowerCase();
+      // 简单匹配所有的出现位置
+      let pos = text.indexOf(q);
+      while (pos !== -1) {
+        results.push({ msgId: msg.id, index: pos });
+        pos = text.indexOf(q, pos + 1);
+      }
+    });
+
+    setSearchResults(results);
+
+    if (results.length === 0) {
+      setCurrentSearchIndex(-1);
+      return;
+    }
+
+    let nextIndex = 0;
+    if (currentSearchIndex !== -1 && results.length > 0) {
+      if (direction === "next") {
+        nextIndex = (currentSearchIndex + 1) % results.length;
+      } else {
+        nextIndex = (currentSearchIndex - 1 + results.length) % results.length;
+      }
+    }
+    setCurrentSearchIndex(nextIndex);
+
+    // 开始定位到对应的消息
+    const target = results[nextIndex];
+    if (target) {
+      // 检查目标消息是否在可见消息范围内。如果不在，需要扩大 visibleMessageCount
+      const targetMsgIndex = messages.findIndex((m) => m.id === target.msgId);
+      if (targetMsgIndex !== -1) {
+        const distanceFromEnd = messages.length - targetMsgIndex;
+        if (distanceFromEnd > visibleMessageCount) {
+          // 向上加载足够的消息，使其可见
+          setVisibleMessageCount(Math.max(visibleMessageCount, distanceFromEnd + 5));
+        }
+      }
+
+      // 等待 DOM 渲染后定位
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const element = document.getElementById(`story-msg-${target.msgId}`);
+          if (element && scrollRef.current) {
+            autoBottomLockRef.current = false; // 暂时解锁贴底，允许滚动定位
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            
+            // 加上高亮动画效果
+            element.classList.remove("story-msg-highlight");
+            void element.offsetWidth; // 触发 reflow
+            element.classList.add("story-msg-highlight");
+          }
+        }, 100);
+      });
+    }
+  }, [messages, visibleMessageCount, currentSearchIndex]);
+
+  useEffect(() => {
+    // 切换会话或消息变化时，如果搜索开着，重新计算结果
+    if (searchOpen && searchQuery) {
+      performSearch(searchQuery);
+    } else {
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+    }
+  }, [activeSessionId, messages.length]);
+
   function handleStoryDelete(msgId: string) {
     deleteStoryMessage(msgId);
     setMessages(prev => prev.filter(m => m.id !== msgId));
@@ -1020,22 +1131,100 @@ export function StoryApp({ onClose }: StoryAppProps) {
         {/* ====== 固定顶部标题栏 ====== */}
         <div className="story-header">
           <div className="story-header-safe-area" />
-          <div className="story-header-content">
-            <div className="story-header-left">
-              <button className="story-top-btn" onClick={onClose} aria-label="关闭剧情模式">
-                <SolidBackIcon size={16} />
-              </button>
+          {searchOpen ? (
+            <div className="story-header-content" style={{ padding: "0 12px", gap: 8 }}>
+              <div style={{ display: "flex", flex: 1, alignItems: "center", background: "var(--c-story-panel, rgba(255,255,255,0.5))", border: "1px solid var(--c-story-panel-border, rgba(0,0,0,0.06))", padding: "4px 8px", borderRadius: 4 }}>
+                <MagnifyingGlassIcon width={14} height={14} className="opacity-40" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSearchQuery(val);
+                    performSearch(val);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      performSearch(searchQuery, e.shiftKey ? "prev" : "next");
+                    } else if (e.key === "Escape") {
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                      setSearchResults([]);
+                      setCurrentSearchIndex(-1);
+                    }
+                  }}
+                  placeholder="输入关键词查找..."
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    padding: "0 6px",
+                    fontSize: "calc(12px*var(--app-text-scale,1))",
+                    color: "var(--c-story-text, #3a3b3c)",
+                  }}
+                />
+                {searchResults.length > 0 && (
+                  <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", opacity: 0.6, margin: "0 4px", whiteSpace: "nowrap" }}>
+                    {currentSearchIndex + 1}/{searchResults.length}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button
+                  className="story-top-btn"
+                  disabled={searchResults.length === 0}
+                  onClick={() => performSearch(searchQuery, "prev")}
+                  aria-label="上一个匹配项"
+                  style={{ opacity: searchResults.length === 0 ? 0.4 : 1 }}
+                >
+                  <ChevronUpIcon width={16} height={16} />
+                </button>
+                <button
+                  className="story-top-btn"
+                  disabled={searchResults.length === 0}
+                  onClick={() => performSearch(searchQuery, "next")}
+                  aria-label="下一个匹配项"
+                  style={{ opacity: searchResults.length === 0 ? 0.4 : 1 }}
+                >
+                  <ChevronDownIcon width={16} height={16} />
+                </button>
+                <button
+                  className="story-top-btn"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                    setSearchResults([]);
+                    setCurrentSearchIndex(-1);
+                  }}
+                  aria-label="退出查找"
+                >
+                  <XMarkIcon width={16} height={16} />
+                </button>
+              </div>
             </div>
-            <div className="story-header-center">Story</div>
-            <div className="story-header-right" style={{ gap: 8 }}>
-              <button className="story-top-btn" onClick={() => setCssModalOpen(true)} aria-label="页面样式">
-                <PaintBrushIcon width={16} height={16} />
-              </button>
-              <button className="story-top-btn" onClick={() => setDrawerOpen(true)} aria-label="打开剧情侧栏">
-                <SolidMenuIcon size={16} />
-              </button>
+          ) : (
+            <div className="story-header-content">
+              <div className="story-header-left">
+                <button className="story-top-btn" onClick={onClose} aria-label="关闭剧情模式">
+                  <SolidBackIcon size={16} />
+                </button>
+              </div>
+              <div className="story-header-center">Story</div>
+              <div className="story-header-right" style={{ gap: 8 }}>
+                <button className="story-top-btn" onClick={() => setSearchOpen(true)} aria-label="搜索剧情内容">
+                  <MagnifyingGlassIcon width={16} height={16} />
+                </button>
+                <button className="story-top-btn" onClick={() => setCssModalOpen(true)} aria-label="页面样式">
+                  <PaintBrushIcon width={16} height={16} />
+                </button>
+                <button className="story-top-btn" onClick={() => setDrawerOpen(true)} aria-label="打开剧情侧栏">
+                  <SolidMenuIcon size={16} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div
@@ -1113,6 +1302,7 @@ export function StoryApp({ onClose }: StoryAppProps) {
                   return (
                     <article
                       key={message.id}
+                      id={`story-msg-${message.id}`}
                       className="story-row"
                       data-role={message.role}
                       onPointerDown={(e) => handleMsgPointerDown(e, message.id)}

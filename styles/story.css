@@ -1024,3 +1024,21 @@
         }
         .story-inline-edit-btn-save { color: var(--c-story-accent, #7c6844); font-weight: 500; }
         .story-inline-edit-btn:disabled { opacity: 0.4; cursor: default; }
+
+        /* 查找高亮定位效果 */
+        .story-msg-highlight {
+          animation: story-flash-highlight 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        @keyframes story-flash-highlight {
+          0% {
+            background-color: rgba(234, 179, 8, 0.45);
+            box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.3);
+          }
+          40% {
+            background-color: rgba(234, 179, 8, 0.35);
+          }
+          100% {
+            background-color: transparent;
+            box-shadow: none;
+          }
+        }
