@@ -138,10 +138,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const record = body && typeof body === "object" ? body as Record<string, unknown> : {};
     const authorType = record.authorType === "character" || record.author_type === "character";
+    const customAuthorName = (typeof record.authorName === "string" && record.authorName.trim())
+      || (typeof record.author_name === "string" && record.author_name.trim())
+      || account.displayName;
     const payload = buildNoteWallCommentInsertPayload({
       ...record,
       actorId: account.id,
-      ...(authorType ? {} : { authorId: account.id, authorName: account.displayName }),
+      ...(authorType ? {} : { authorId: account.id, authorName: customAuthorName }),
     } as Parameters<typeof buildNoteWallCommentInsertPayload>[0]);
     if (!payload.note_id || !payload.body) {
       return NextResponse.json({ ok: false, error: "missing_comment_body" }, { status: 400 });

@@ -196,11 +196,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const record = body && typeof body === "object" ? body as Record<string, unknown> : {};
     const authorType = record.authorType === "character" || record.author_type === "character";
+    const customAuthorName = (typeof record.authorName === "string" && record.authorName.trim())
+      || (typeof record.author_name === "string" && record.author_name.trim())
+      || account.displayName;
     const payload = buildNoteWallInsertPayload({
       ...record,
       boardId: board.id,
       actorId: account.id,
-      ...(authorType ? {} : { authorId: account.id, authorName: account.displayName }),
+      ...(authorType ? {} : { authorId: account.id, authorName: customAuthorName }),
     } as Parameters<typeof buildNoteWallInsertPayload>[0]);
     const result = await supabaseFetch<unknown[]>(
       `note_wall_notes?${REST_SELECT_NOTES}`,
