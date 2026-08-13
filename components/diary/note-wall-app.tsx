@@ -66,7 +66,7 @@ const PAPER_OPTIONS = ["plain", "cream", "pink", "blue", "kraft"];
 const TAPE_OPTIONS = ["none", "masking", "stripe", "flower"];
 // 字体ID huangyou/shangshangqian 是历史遗留标识（已写入用户便签数据和LLM工具协议，改名会破坏兼容）。
 // 实际字体早已换为可商用字体：喜脉=「字制区喜脉喜欢体」(OFL 1.1)，小纸条=「鸿雷小纸条青春体」，见 NOTICE。
-const FONT_OPTIONS = ["default", "huangyou", "shangshangqian", "huiwen"];
+const FONT_OPTIONS = ["default", "shangshangqian", "huiwen"];
 const PAPER_LABELS: Record<string, string> = {
   plain: "原色",
   cream: "米色",
@@ -82,12 +82,11 @@ const TAPE_LABELS: Record<string, string> = {
 };
 const FONT_LABELS: Record<string, string> = {
   default: "默认",
-  huangyou: "喜脉",
   shangshangqian: "小纸条",
   huiwen: "汇文",
 };
 const FONT_FAMILIES: Record<string, string> = {
-  huangyou: '"NoteWall Ximai", var(--app-font-family)',
+  huangyou: '"NoteWall Huiwen", var(--app-font-family)',
   shangshangqian: '"NoteWall Xiaozhitiao", var(--app-font-family)',
   huiwen: '"NoteWall Huiwen", var(--app-font-family)',
 };

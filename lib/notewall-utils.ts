@@ -33,8 +33,9 @@ const SAFE_CSS_PROPERTIES = new Set([
 
 const FORBIDDEN_CSS_VALUE = /url\s*\(|javascript:|expression\s*\(|behavior\s*:|@import|<|>|\\|position\s*:|display\s*:|z-index\s*:/i;
 // ID 为历史遗留名（存量数据+LLM协议依赖）；实际字体为可商用的「字制区喜脉喜欢体」与「鸿雷小纸条青春体」。
-const NOTE_WALL_FONT_IDS = new Set(["default", "huangyou", "shangshangqian", "huiwen"]);
+const NOTE_WALL_FONT_IDS = new Set(["default", "shangshangqian", "huiwen"]);
 const LEGACY_FONT_MAP: Record<string, string> = {
+  huangyou: "huiwen",
   serif: "huiwen",
   handwritten: "huiwen",
   mono: "shangshangqian",
